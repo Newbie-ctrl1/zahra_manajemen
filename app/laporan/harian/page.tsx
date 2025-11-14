@@ -1,27 +1,47 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import DateFilter from '@/components/DateFilter';
 import ExportButtons from '@/components/ExportButtons';
 import StatsCard from '@/components/StatsCard';
-import { DateRange } from '@/types/report';
-import { mockTransactions } from '@/lib/mockData';
+import { DateRange, Transaction } from '@/types/report';
 import {
   filterTransactionsByDate,
   calculateDailyReport,
   formatCurrency,
   formatDate,
 } from '@/lib/reportUtils';
+import Link from 'next/link';
 
 export default function LaporanHarianPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: null,
     endDate: null,
   });
 
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      const stored = localStorage.getItem('imported_transactions');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const withDates = parsed.map((item: any) => ({
+          ...item,
+          date: new Date(item.date),
+        }));
+        setTransactions(withDates);
+      }
+    };
+    
+    loadData();
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
+  }, []);
+
   const filteredTransactions = useMemo(
-    () => filterTransactionsByDate(mockTransactions, dateRange),
-    [dateRange]
+    () => filterTransactionsByDate(transactions, dateRange),
+    [transactions, dateRange]
   );
 
   const dailyReports = useMemo(
@@ -114,9 +134,36 @@ export default function LaporanHarianPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Laporan Harian</h1>
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">Laporan Harian</h1>
+          <Link
+            href="/laporan/import"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import Data
+          </Link>
+        </div>
 
-        <DateFilter onFilterChange={setDateRange} />
+        {transactions.length === 0 ? (
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-12 text-center">
+            <svg className="w-20 h-20 text-yellow-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Belum Ada Data Transaksi</h3>
+            <p className="text-gray-600 mb-6">Upload file Excel/CSV untuk melihat laporan harian penjualan</p>
+            <Link
+              href="/laporan/import"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+            >
+              Upload Data Transaksi
+            </Link>
+          </div>
+        ) : (
+          <>
+            <DateFilter onFilterChange={setDateRange} />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <StatsCard
@@ -190,8 +237,8 @@ export default function LaporanHarianPage() {
                   </tr>
                 ) : (
                   dailyReports.map((daily) => (
-                    <>
-                      <tr key={daily.date} className="bg-gray-100">
+                    <Fragment key={daily.date}>
+                      <tr className="bg-gray-100">
                         <td colSpan={7} className="px-6 py-3 font-semibold">
                           {formatDate(daily.date)} - {daily.transactionCount} transaksi - Total: {formatCurrency(daily.totalSales)}
                         </td>
@@ -221,13 +268,15 @@ export default function LaporanHarianPage() {
                           </td>
                         </tr>
                       ))}
-                    </>
+                    </Fragment>
                   ))
                 )}
               </tbody>
             </table>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

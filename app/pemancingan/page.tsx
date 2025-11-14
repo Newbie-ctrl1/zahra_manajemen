@@ -1,48 +1,65 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { mockLeleStock, mockNilaStock } from '@/lib/mockData';
+import { useMemo, useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/reportUtils';
+import { FishStock } from '@/types/report';
 
 export default function PemancingPage() {
+  const [leleStock, setLeleStock] = useState<FishStock[]>([]);
+  const [nilaStock, setNilaStock] = useState<FishStock[]>([]);
+
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadedLele = localStorage.getItem('imported_fish_lele');
+    const loadedNila = localStorage.getItem('imported_fish_nila');
+    
+    if (loadedLele) {
+      setLeleStock(JSON.parse(loadedLele));
+    }
+    if (loadedNila) {
+      setNilaStock(JSON.parse(loadedNila));
+    }
+  }, []);
+
   const leleStats = useMemo(() => {
-    const totalIn = mockLeleStock
+    const totalIn = leleStock
       .filter((s) => s.type === 'in')
       .reduce((sum, s) => sum + s.quantity, 0);
-    const totalOut = mockLeleStock
+    const totalOut = leleStock
       .filter((s) => s.type === 'out')
       .reduce((sum, s) => sum + s.quantity, 0);
     const currentStock = totalIn - totalOut;
-    const revenue = mockLeleStock
+    const revenue = leleStock
       .filter((s) => s.type === 'out')
       .reduce((sum, s) => sum + (s.total || 0), 0);
-    const purchase = mockLeleStock
+    const purchase = leleStock
       .filter((s) => s.type === 'in')
       .reduce((sum, s) => sum + (s.total || 0), 0);
     
     return { totalIn, totalOut, currentStock, revenue, purchase, profit: revenue - purchase };
-  }, []);
+  }, [leleStock]);
 
   const nilaStats = useMemo(() => {
-    const totalIn = mockNilaStock
+    const totalIn = nilaStock
       .filter((s) => s.type === 'in')
       .reduce((sum, s) => sum + s.quantity, 0);
-    const totalOut = mockNilaStock
+    const totalOut = nilaStock
       .filter((s) => s.type === 'out')
       .reduce((sum, s) => sum + s.quantity, 0);
     const currentStock = totalIn - totalOut;
-    const revenue = mockNilaStock
+    const revenue = nilaStock
       .filter((s) => s.type === 'out')
       .reduce((sum, s) => sum + (s.total || 0), 0);
-    const purchase = mockNilaStock
+    const purchase = nilaStock
       .filter((s) => s.type === 'in')
       .reduce((sum, s) => sum + (s.total || 0), 0);
     
     return { totalIn, totalOut, currentStock, revenue, purchase, profit: revenue - purchase };
-  }, []);
+  }, [nilaStock]);
 
   const totalProfit = leleStats.profit + nilaStats.profit;
+  const hasData = leleStock.length > 0 || nilaStock.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,6 +74,38 @@ export default function PemancingPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <Link
+            href="/pemancingan/import"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-lg hover:shadow-xl"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import Data Stok Excel/CSV
+          </Link>
+        </div>
+
+        {/* No Data Message */}
+        {!hasData && (
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-8 mb-8 text-center">
+            <svg className="w-16 h-16 text-yellow-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Belum Ada Data Stok</h3>
+            <p className="text-gray-600 mb-4">
+              Upload file Excel/CSV untuk mulai tracking stok ikan lele dan nila
+            </p>
+            <Link
+              href="/pemancingan/import"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+            >
+              Upload Data Sekarang
+            </Link>
+          </div>
+        )}
+        
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-lg p-6">

@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import DateFilter from '@/components/DateFilter';
 import ExportButtons from '@/components/ExportButtons';
 import StatsCard from '@/components/StatsCard';
-import { DateRange } from '@/types/report';
-import { mockTransactions } from '@/lib/mockData';
+import { DateRange, Transaction } from '@/types/report';
 import {
   filterTransactionsByDate,
   getWeeklyReport,
@@ -13,19 +12,40 @@ import {
   formatCurrency,
   formatDate,
 } from '@/lib/reportUtils';
+import Link from 'next/link';
 
 type ReportType = 'weekly' | 'monthly';
 
 export default function LaporanPeriodePage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [reportType, setReportType] = useState<ReportType>('weekly');
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: null,
     endDate: null,
   });
 
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      const stored = localStorage.getItem('imported_transactions');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const withDates = parsed.map((item: any) => ({
+          ...item,
+          date: new Date(item.date),
+        }));
+        setTransactions(withDates);
+      }
+    };
+    
+    loadData();
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
+  }, []);
+
   const filteredTransactions = useMemo(
-    () => filterTransactionsByDate(mockTransactions, dateRange),
-    [dateRange]
+    () => filterTransactionsByDate(transactions, dateRange),
+    [transactions, dateRange]
   );
 
   const report = useMemo(() => {

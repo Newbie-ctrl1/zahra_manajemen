@@ -1,27 +1,51 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { mockTransactions } from '@/lib/mockData';
+import { useMemo, useState, useEffect } from 'react';
+import { Transaction } from '@/types/report';
 import { formatCurrency, getTopProducts } from '@/lib/reportUtils';
 
 export default function LaporanPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      const stored = localStorage.getItem('imported_transactions');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert date strings back to Date objects
+        const withDates = parsed.map((item: any) => ({
+          ...item,
+          date: new Date(item.date),
+        }));
+        setTransactions(withDates);
+      }
+    };
+    
+    loadData();
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
+  }, []);
+
   const todayTransactions = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return mockTransactions.filter((t) => {
+    return transactions.filter((t) => {
       const transactionDate = new Date(t.date);
       transactionDate.setHours(0, 0, 0, 0);
       return t.type === 'sale' && transactionDate.getTime() === today.getTime();
     });
-  }, []);
+  }, [transactions]);
 
   const todaySales = useMemo(
     () => todayTransactions.reduce((sum, t) => sum + t.total, 0),
     [todayTransactions]
   );
 
-  const topProducts = useMemo(() => getTopProducts(mockTransactions, 3), []);
+  const topProducts = useMemo(() => getTopProducts(transactions, 3), [transactions]);
+
+  const hasData = transactions.length > 0;
 
   const menuItems = [
     {
@@ -114,6 +138,38 @@ export default function LaporanPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <Link
+            href="/laporan/import"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-lg hover:shadow-xl"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import Data Excel/CSV
+          </Link>
+        </div>
+
+        {/* No Data Message */}
+        {!hasData && (
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-8 mb-8 text-center">
+            <svg className="w-16 h-16 text-yellow-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Belum Ada Data Transaksi</h3>
+            <p className="text-gray-600 mb-4">
+              Upload file Excel/CSV untuk mulai tracking penjualan warung
+            </p>
+            <Link
+              href="/laporan/import"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+            >
+              Upload Data Sekarang
+            </Link>
+          </div>
+        )}
+        
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-lg p-6">
@@ -150,7 +206,7 @@ export default function LaporanPage() {
               <div>
                 <p className="text-sm text-gray-600">Total Transaksi</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {mockTransactions.filter((t) => t.type === 'sale').length}
+                  {transactions.filter((t) => t.type === 'sale').length}
                 </p>
               </div>
               <div className="bg-blue-100 p-3 rounded-full">

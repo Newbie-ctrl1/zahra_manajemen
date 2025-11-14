@@ -31,11 +31,14 @@ export interface ProductReport {
 export interface StockMovement {
   id: string;
   date: Date;
-  productId: string;
+  productId?: string;
   productName: string;
   type: 'in' | 'out';
   quantity: number;
-  reason: string;
+  price?: number;
+  total?: number;
+  category?: string;
+  reason?: string;
   reference?: string;
 }
 

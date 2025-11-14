@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import DateFilter from '@/components/DateFilter';
 import ExportButtons from '@/components/ExportButtons';
-import { DateRange } from '@/types/report';
-import { mockTransactions } from '@/lib/mockData';
+import { DateRange, Transaction } from '@/types/report';
 import {
   filterTransactionsByDate,
   getTopProducts,
@@ -12,15 +11,35 @@ import {
 } from '@/lib/reportUtils';
 
 export default function LaporanTerlarisPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: null,
     endDate: null,
   });
   const [topLimit, setTopLimit] = useState(10);
 
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      const stored = localStorage.getItem('imported_transactions');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const withDates = parsed.map((item: any) => ({
+          ...item,
+          date: new Date(item.date),
+        }));
+        setTransactions(withDates);
+      }
+    };
+    
+    loadData();
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
+  }, []);
+
   const filteredTransactions = useMemo(
-    () => filterTransactionsByDate(mockTransactions, dateRange),
-    [dateRange]
+    () => filterTransactionsByDate(transactions, dateRange),
+    [transactions, dateRange]
   );
 
   const topProducts = useMemo(

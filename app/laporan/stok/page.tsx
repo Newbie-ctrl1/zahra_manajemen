@@ -1,21 +1,41 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import DateFilter from '@/components/DateFilter';
 import ExportButtons from '@/components/ExportButtons';
-import { DateRange } from '@/types/report';
-import { mockStockMovements } from '@/lib/mockData';
-import { formatDate } from '@/lib/reportUtils';
+import { DateRange, StockMovement } from '@/types/report';
+import { formatDate, formatCurrency } from '@/lib/reportUtils';
 
 export default function LaporanStokPage() {
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: null,
     endDate: null,
   });
   const [filterType, setFilterType] = useState<'all' | 'in' | 'out'>('all');
 
-  const filteredMovements = useMemo(() => {
-    let filtered = mockStockMovements;
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      const stored = localStorage.getItem('imported_stock_movements');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const withDates = parsed.map((item: any) => ({
+          ...item,
+          date: new Date(item.date),
+        }));
+        setStockMovements(withDates);
+      }
+    };
+    
+    loadData();
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
+  }, []);
+
+  const filteredStock = useMemo(() => {
+    let filtered = stockMovements;
 
     // Filter by date
     if (dateRange.startDate || dateRange.endDate) {
@@ -57,18 +77,18 @@ export default function LaporanStokPage() {
 
   const totalIn = useMemo(
     () =>
-      filteredMovements
+      filteredStock
         .filter((m) => m.type === 'in')
         .reduce((sum, m) => sum + m.quantity, 0),
-    [filteredMovements]
+    [filteredStock]
   );
 
   const totalOut = useMemo(
     () =>
-      filteredMovements
+      filteredStock
         .filter((m) => m.type === 'out')
         .reduce((sum, m) => sum + m.quantity, 0),
-    [filteredMovements]
+    [filteredStock]
   );
 
   const netChange = totalIn - totalOut;
@@ -87,18 +107,18 @@ export default function LaporanStokPage() {
     doc.text(`Total Stok Keluar: ${totalOut} unit`, 14, 37);
     doc.text(`Net Change: ${netChange} unit`, 14, 44);
 
-    const tableData = filteredMovements.map((m) => [
+    const tableData = filteredStock.map((m) => [
       formatDate(m.date),
       m.productName,
       m.type === 'in' ? 'Masuk' : 'Keluar',
       m.quantity.toString(),
-      m.reason,
-      m.reference || '-',
+      formatCurrency(m.price || 0),
+      formatCurrency(m.total || 0),
     ]);
 
     autoTable(doc, {
       startY: 50,
-      head: [['Tanggal', 'Produk', 'Tipe', 'Quantity', 'Keterangan', 'Referensi']],
+      head: [['Tanggal', 'Produk', 'Tipe', 'Quantity', 'Harga', 'Total']],
       body: tableData,
     });
 
@@ -115,17 +135,17 @@ export default function LaporanStokPage() {
       ['Total Stok Keluar', `${totalOut} unit`],
       ['Net Change', `${netChange} unit`],
       [],
-      ['Tanggal', 'Produk', 'Tipe', 'Quantity', 'Keterangan', 'Referensi'],
+      ['Tanggal', 'Produk', 'Tipe', 'Quantity', 'Harga', 'Total'],
     ];
 
-    filteredMovements.forEach((m) => {
+    filteredStock.forEach((m) => {
       wsData.push([
         formatDate(m.date),
         m.productName,
         m.type === 'in' ? 'Masuk' : 'Keluar',
         m.quantity,
-        m.reason,
-        m.reference || '-',
+        m.price || 0,
+        m.total || 0,
       ]);
     });
 
@@ -138,9 +158,37 @@ export default function LaporanStokPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">
-          Laporan Stok Masuk & Keluar
-        </h1>
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Laporan Stok Masuk & Keluar
+          </h1>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                if (confirm('Apakah Anda yakin ingin menghapus semua data stok? Tindakan ini tidak dapat dibatalkan.')) {
+                  localStorage.removeItem('imported_stock_movements');
+                  setStockMovements([]);
+                  alert('Semua data stok berhasil dihapus!');
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Hapus Semua Data
+            </button>
+            <Link
+              href="/laporan/stok/input"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Input Manual
+            </Link>
+          </div>
+        </div>
 
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <div className="flex gap-4">
@@ -249,23 +297,23 @@ export default function LaporanStokPage() {
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Quantity
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Keterangan
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Harga
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Referensi
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredMovements.length === 0 ? (
+                {filteredStock.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                       Tidak ada data pergerakan stok
                     </td>
                   </tr>
                 ) : (
-                  filteredMovements.map((movement) => (
+                  filteredStock.map((movement) => (
                     <tr key={movement.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(movement.date)}
@@ -287,11 +335,11 @@ export default function LaporanStokPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                         {movement.quantity}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {movement.reason}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        {formatCurrency(movement.price || 0)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {movement.reference || '-'}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                        {formatCurrency(movement.total || 0)}
                       </td>
                     </tr>
                   ))

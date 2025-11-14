@@ -1,21 +1,43 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import DateFilter from '@/components/DateFilter';
 import ExportButtons from '@/components/ExportButtons';
-import { DateRange } from '@/types/report';
-import { mockNilaStock } from '@/lib/mockData';
+import { DateRange, FishStock } from '@/types/report';
 import { formatDate, formatCurrency } from '@/lib/reportUtils';
+import Link from 'next/link';
 
 export default function StokNilaPage() {
+  const [nilaStock, setNilaStock] = useState<FishStock[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: null,
     endDate: null,
   });
   const [filterType, setFilterType] = useState<'all' | 'in' | 'out'>('all');
 
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      const stored = localStorage.getItem('imported_fish_nila');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert date strings back to Date objects
+        const withDates = parsed.map((item: any) => ({
+          ...item,
+          date: new Date(item.date),
+        }));
+        setNilaStock(withDates);
+      }
+    };
+    
+    loadData();
+    // Reload when window gets focus (for when data is imported in another tab)
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
+  }, []);
+
   const filteredStock = useMemo(() => {
-    let filtered = mockNilaStock;
+    let filtered = nilaStock;
 
     // Filter by date
     if (dateRange.startDate || dateRange.endDate) {
@@ -168,12 +190,44 @@ export default function StokNilaPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Stok Nila</h1>
-          <p className="text-gray-600 mt-2">Monitoring stok ikan nila masuk dan keluar</p>
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Stok Nila</h1>
+            <p className="text-gray-600 mt-2">Monitoring stok ikan nila masuk dan keluar</p>
+          </div>
+          <Link
+            href="/pemancingan/import"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import Data
+          </Link>
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+        {nilaStock.length === 0 ? (
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-12 text-center">
+            <svg className="w-20 h-20 text-yellow-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Belum Ada Data Stok Nila</h3>
+            <p className="text-gray-600 mb-6">
+              Upload file Excel/CSV untuk mulai tracking stok ikan nila Anda
+            </p>
+            <Link
+              href="/pemancingan/import"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Upload Data Stok Nila
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <div className="flex gap-4">
             <button
               onClick={() => setFilterType('all')}
@@ -360,6 +414,8 @@ export default function StokNilaPage() {
             </table>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
